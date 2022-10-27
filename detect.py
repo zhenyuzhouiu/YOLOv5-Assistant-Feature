@@ -3,13 +3,13 @@ import os
 import platform
 import shutil
 import time
-from pathlib import Path
-
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
-from numpy import random
+import math
 
+from pathlib import Path
+from numpy import random
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import (
@@ -17,6 +17,7 @@ from utils.general import (
     xyxy2xywh, plot_one_rotated_box, strip_optimizer, set_logging, rotate_non_max_suppression)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 from utils.evaluation_utils import rbox2txt, rbox2center
+from torch.nn import functional as F
 
 
 def detect(save_img=False):
@@ -127,8 +128,10 @@ def detect(save_img=False):
 
         # Apply NMS
         # 进行NMS
-        # output pred : list[tensor(batch_size, num_conf_nms, [xylsθ,conf,classid])] θ∈[0,179]
-        pred = rotate_non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, without_iouthres=False)
+        # input pred : list[tensor(batch_size, num_conf_nms, [xylsθ,conf,classid])] θ∈[0,179]
+        # output pred : list[num_conf_nums, 7] length of list is batch_size
+        pred = rotate_non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes,
+                                          agnostic=opt.agnostic_nms, without_iouthres=False)
         t2 = time_synchronized()
 
         # Process detections
@@ -140,20 +143,10 @@ def detect(save_img=False):
 
             save_path = str(Path(out) / Path(p).name)  # 图片保存路径+图片名字
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
-            #print(txt_path)
+            # print(txt_path)
             s += '%gx%g ' % img.shape[2:]  # print string
 
             if det is not None and len(det):
-                # ========================= Using NMS OBB to locate feature map
-                # pred is the list type
-                # pred bounding box size is based on the img (im0s resize to the input image size, etc., 1024x1024)
-                pred_32 = det[..., :4] / 32
-                pred_16 = det[..., :4] / 16
-                pred_8 = det[..., :4] / 8
-                fm_32 = save[17]
-                fm_16 = save[20]
-                fm_8 = save[23]
-
                 # ========================== Rescale boxes from img_size to im0 size
                 det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
 
@@ -164,7 +157,7 @@ def detect(save_img=False):
 
                 # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
                 for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
-
+                    fk_fm_32, fk_fm_16, fk_fm_8 = assistant_feature(*rbox, save=save)
                     # =============================== for minor finger knuckle angle
                     if cls == 1:
                         pred_angle = int(rbox[4].cpu().float().numpy())
@@ -183,7 +176,8 @@ def detect(save_img=False):
                             angle = pred_angle
                             classname = '%s' % names[int(cls)]
                             conf_str = '%.3f' % conf
-                            rbox2txt(rbox, classname, conf_str, Path(p).stem, str(out + '/result_txt/result_before_merge'))
+                            rbox2txt(rbox, classname, conf_str, Path(p).stem,
+                                     str(out + '/result_txt/result_before_merge'))
                             im0, img_crop = plot_one_rotated_box(rbox, im0, label=label,
                                                                  color=colors[int(cls)],
                                                                  line_thickness=1,
@@ -222,10 +216,59 @@ def detect(save_img=False):
     print('   All Done. (%.3fs)' % (time.time() - t0))
 
 
-def assistant_feature(save):
+def generate_theta(i_radian, i_tx, i_ty, i_batch_size, i_h, i_w, i_dtype):
+    # if you want to keep ration when rotation a rectangle image
+    theta = torch.tensor([[math.cos(i_radian), math.sin(-i_radian) * i_h / i_w, i_tx],
+                          [math.sin(i_radian) * i_w / i_h, math.cos(i_radian), i_ty]],
+                         dtype=i_dtype).unsqueeze(0).repeat(i_batch_size, 1, 1)
+    # else
+    # theta = torch.tensor([[math.cos(i_radian), math.sin(-i_radian), i_tx],
+    #                       [math.sin(i_radian), math.cos(i_radian), i_ty]],
+    #                      dtype=i_dtype).unsqueeze(0).repeat(i_batch_size, 1, 1)
+    return theta
 
 
-    return 0
+def assistant_feature(*obbox, save):
+    # ========================= Using NMS OBB to locate feature maps
+    # det:-> tensor [x, y, l, s, θ, confidence, class_id]
+    # fm:-> tensor [batch_size, channels, input_h/stride, input_w/stride]
+    # obb:-> list [obb_32, obb_16, obb_8]
+    obbox_x = obbox[0].cpu().data.float().numpy()
+    obbox_y = obbox[1].cpu().data.float().numpy()
+    obbox_l = obbox[2].cpu().data.float().numpy()
+    obbox_s = obbox[3].cpu().data.float().numpy()
+    obbox_a = obbox[4].cpu().data.float().numpy()
+    obb_32 = [obbox_x / 32, obbox_y / 32, obbox_l / 32, obbox_s / 32, obbox_a]
+    obb_16 = [obbox_x / 16, obbox_y / 16, obbox_l / 16, obbox_s / 16, obbox_a]
+    obb_8 = [obbox_x / 8, obbox_y / 8, obbox_l / 8, obbox_s / 8, obbox_a]
+    obb = [obb_32, obb_16, obb_8]
+    # fm:-> list [fm_32, fm_16, fm_8]
+    fm = [save[23], save[20], save[17]]
+    fk_fm = []
+
+    for i in range(len(obb)):
+        obb_i = obb[i]
+        fm_i = fm[i]
+        # using affine_grid and grid_sample to rotate feature map
+        mask = torch.ones_like(fm_i, device=fm_i.device)
+        obb_x = obb_i[0]
+        obb_y = obb_i[1]
+        obb_l = obb_i[2]
+        obb_s = obb_i[3]
+        obb_a = obb_i[4]
+        if obb_a > 90:
+            rotation_angle = 180 - obb_a
+        else:
+            rotation_angle = - obb_a
+        radian_a = rotation_angle * math.pi / 180.
+        theta = generate_theta(radian_a, 0, 0, 1, fm_i.size(2), fm_i.size(3), fm_i.dtype).to(fm_i.device)
+        grid = F.affine_grid(theta, fm_i.size(), align_corners=False).to(fm_i.device)
+        r_fm = F.grid_sample(fm_i, grid, align_corners=False)
+        r_mask = F.grid_sample(mask, grid, align_corners=False)
+        fk_fm.append(r_fm[:, :, obb_y - obb_s / 2: obb_y + obb_s / 2, obb_x - obb_l / 2:obb_x + obb_l / 2])
+
+    return fk_fm[0], fk_fm[1], fk_fm[2]
+
 
 if __name__ == '__main__':
     """
@@ -244,7 +287,8 @@ if __name__ == '__main__':
         update:如果为True，则对所有模型进行strip_optimizer操作，去除pt文件中的优化器等信息，默认为False
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str,
+                        default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='./inference/imgs/', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='./inference/detection', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
