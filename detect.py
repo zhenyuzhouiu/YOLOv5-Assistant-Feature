@@ -67,8 +67,14 @@ def detect(save_img=False):
     for s in subject_name:
         subject_path = os.path.join(source, s)
         crop_subject_path = os.path.join(crop, s)
+        if not os.path.exists(crop_subject_path):
+            os.mkdir(crop_subject_path)
         crop_subject_feature_path = os.path.join(crop_feature, s)
+        if not os.path.exists(crop_subject_feature_path):
+            os.mkdir(crop_subject_feature_path)
         out_subject = os.path.join(out, s)
+        if not os.path.exists(out_subject):
+            os.mkdir(out_subject)
 
         # Set Dataloader
         # 通过不同的输入源来设置不同的数据加载方式
@@ -401,10 +407,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='./inference/imgs/', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='./inference/detection', help='output folder')  # output folder
-    parser.add_argument('--crop_path', type=str, default='./inference/crop', help='crop finger knuckle folder')
-    parser.add_argument('--feature_path', type=str, default='./inference/feature', help='crop feature map folder')
+    parser.add_argument('--source', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left/', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/', help='output folder')  # output folder
+    parser.add_argument('--crop_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-crop', help='crop finger knuckle folder')
+    parser.add_argument('--feature_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-feature', help='crop feature map folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
