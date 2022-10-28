@@ -159,30 +159,37 @@ def detect(save_img=False):
                     p, s, im0 = path, '', im0s
 
                 save_path = str(Path(out_subject) / Path(p).name)  # 图片保存路径+图片名字
-                txt_path = str(Path(out_subject) / Path(p).stem) + (
-                    '_%g' % dataset.frame if dataset.mode == 'video' else '')
-                # print(txt_path)
                 s += '%gx%g ' % img.shape[2:]  # print string
 
+                # ==================== Firstly, we only consider the major finger knuckle
                 if det is not None and len(det):
-                    # ========================== Rescale boxes from img_size to im0 size
-                    unscale_det = det.copy()
-                    det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
+                    # ==================== only need the index finger knuckle
 
-                    # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
-                    for c in det[:, -1].unique():  # unique函数去除其中重复的元素，并按元素（类别）由大到小返回一个新的无元素重复的元组或者列表
-                        n = (det[:, -1] == c).sum()  # detections per class  每个类别检测出来的素含量
-                        s += '%g %ss, ' % (n, names[int(c)])  # add to string 输出‘数量 类别,’
 
-                    # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
-                    # ==================== Firstly, we only consider the major finger knuckle
-
+                    # ==================== getting the feature map from the [17, 20, 23] layers of model
                     one_image_knuckle = 0
                     for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
                         if cls == 1:
                             continue
                         fk_fm_32, fk_fm_16, fk_fm_8 = assistant_feature(*rbox, save=save)
-                        # =============================== for minor finger knuckle angle
+                        np.save(crop_subject_feature_path + '/major-' + str(
+                            one_image_knuckle) + '-' + '32' + '.npy', fk_fm_32)
+                        np.save(crop_subject_feature_path + '/major-' + str(
+                            one_image_knuckle) + '-' + '16' + '.npy', fk_fm_16)
+                        np.save(crop_subject_feature_path + '/major-' + str(
+                            one_image_knuckle) + '-' + '8' + '.npy', fk_fm_8)
+                        one_image_knuckle += 1
+
+                    # ========================== Rescale boxes from img_size to im0 size
+                    det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
+                    # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
+                    for c in det[:, -1].unique():  # unique函数去除其中重复的元素，并按元素（类别）由大到小返回一个新的无元素重复的元组或者列表
+                        n = (det[:, -1] == c).sum()  # detections per class  每个类别检测出来的素含量
+                        s += '%g %ss, ' % (n, names[int(c)])  # add to string 输出‘数量 类别,’
+                    # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
+                    one_image_knuckle = 0
+                    for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
+                        # for minor finger knuckle angle
                         if cls == 1:
                             pred_angle = int(rbox[4].cpu().float().numpy())
                             if pred_angle > 90:
@@ -207,12 +214,6 @@ def detect(save_img=False):
                                                                      line_thickness=1,
                                                                      pi_format=False)
                                 cv2.imwrite(crop_subject_path + '/major-' + str(one_image_knuckle) + '.jpg', img_crop)
-                                np.save(crop_subject_feature_path + '/major-' + str(
-                                    one_image_knuckle) + '-' + '32' + '.npy', fk_fm_32)
-                                np.save(crop_subject_feature_path + '/major-' + str(
-                                    one_image_knuckle) + '-' + '16' + '.npy', fk_fm_16)
-                                np.save(crop_subject_feature_path + '/major-' + str(
-                                    one_image_knuckle) + '-' + '8' + '.npy', fk_fm_8)
                                 one_image_knuckle += 1
 
                 # Print time (inference + NMS)
@@ -417,8 +418,8 @@ if __name__ == '__main__':
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+    parser.add_argument('--view_img', default=True, action='store_true', help='display results')
+    parser.add_argument('--save_txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', default=False, help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
