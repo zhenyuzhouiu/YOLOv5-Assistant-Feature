@@ -166,6 +166,7 @@ def detect(save_img=False):
 
                 if det is not None and len(det):
                     # ========================== Rescale boxes from img_size to im0 size
+                    unscale_det = det.copy()
                     det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
 
                     # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
@@ -175,6 +176,7 @@ def detect(save_img=False):
 
                     # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
                     # ==================== Firstly, we only consider the major finger knuckle
+
                     one_image_knuckle = 0
                     for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
                         if cls == 1:
@@ -407,10 +409,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left/', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/', help='output folder')  # output folder
-    parser.add_argument('--crop_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-crop', help='crop finger knuckle folder')
-    parser.add_argument('--feature_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-feature', help='crop feature map folder')
+    parser.add_argument('--source', type=str, default='./inference/imgs/', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output', type=str, default='./inference/detection/', help='output folder')  # output folder
+    parser.add_argument('--crop_path', type=str, default='./inference/crop', help='crop finger knuckle folder')
+    parser.add_argument('--feature_path', type=str, default='./inference/feature', help='crop feature map folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
