@@ -1856,7 +1856,7 @@ def plot_one_rotated_box(rbox, img, color=None, label=None, line_thickness=None,
     # poly = [(x1,y1),(x2,y2),(x3,y3),(x4,y4)]
     poly = np.float32(cv2.boxPoints(rect))  # from opencv rotated rectangle get four points
     poly = np.int0(poly)
-    img_crop = img
+    img_crop = img.copy()
     cv2.drawContours(image=img, contours=[poly], contourIdx=-1, color=color, thickness=10)
     # cropping rotated rectangle from image with opencv
     rotated = 0
