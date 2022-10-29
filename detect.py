@@ -58,12 +58,15 @@ def detect(save_img=False):
     # 移除之前的输出文件夹,并新建输出文件夹
     if os.path.exists(out):
         shutil.rmtree(out)  # delete output folder
-    os.makedirs(out)  # make new output folder
+    os.mkdir(out)  # make new output folder
+    if os.path.exists(crop):
+        shutil.rmtree(crop)  # delete output folder
+    os.mkdir(crop)
+    if os.path.exists(crop_feature):
+        shutil.rmtree(crop_feature)  # delete output folder
+    os.mkdir(crop_feature)
+
     subject_name = os.listdir(source)
-    if not os.path.exists(crop):
-        os.mkdir(crop)
-    if not os.path.exists(crop_feature):
-        os.mkdir(crop_feature)
     for s in subject_name:
         subject_path = os.path.join(source, s)
         crop_subject_path = os.path.join(crop, s)
@@ -152,7 +155,7 @@ def detect(save_img=False):
             t2 = time_synchronized()
 
             # Process detections
-            for i, det in enumerate(pred):  # i:image index  det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
+            for i, det in enumerate(pred):  # i:image index  det:->tensor(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
                 if webcam:  # batch_size >= 1
                     p, s, im0 = path[i], '%g: ' % i, im0s[i].copy()
                 else:
@@ -160,23 +163,39 @@ def detect(save_img=False):
 
                 save_path = str(Path(out_subject) / Path(p).name)  # 图片保存路径+图片名字
                 s += '%gx%g ' % img.shape[2:]  # print string
+                img_name = (Path(p).name).split('.')[0]
 
                 # ==================== Firstly, we only consider the major finger knuckle
                 if det is not None and len(det):
-                    # ==================== only need the index finger knuckle
-
-
+                    # ==================== only need one finger knuckle for each image
+                    major_knuckle = 0
+                    for det_r in range(det.size(0)):
+                        if det[det_r][6] == torch.tensor(0):
+                            if major_knuckle == 0:
+                                major_det = det[det_r, :].unsqueeze(0)
+                            else:
+                                major_det = torch.cat([major_det, det[det_r, :].unsqueeze(0)], dim=0)
+                            major_knuckle += 1
+                    if major_det is not None and len(major_det):
+                        sort_index = major_det.sort(0, False)[1].cpu().numpy()
+                        if major_det.size(0) == 1:
+                            sort_index = sort_index[0][0]
+                        else:
+                            sort_index = sort_index[1][0]
+                        det = major_det[sort_index, :].unsqueeze(0)
+                    else:
+                        continue
                     # ==================== getting the feature map from the [17, 20, 23] layers of model
                     one_image_knuckle = 0
                     for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
                         if cls == 1:
                             continue
                         fk_fm_32, fk_fm_16, fk_fm_8 = assistant_feature(*rbox, save=save)
-                        np.save(crop_subject_feature_path + '/major-' + str(
+                        np.save(crop_subject_feature_path + '/' + img_name + '-' + str(
                             one_image_knuckle) + '-' + '32' + '.npy', fk_fm_32)
-                        np.save(crop_subject_feature_path + '/major-' + str(
+                        np.save(crop_subject_feature_path + '/' + img_name + '-' + str(
                             one_image_knuckle) + '-' + '16' + '.npy', fk_fm_16)
-                        np.save(crop_subject_feature_path + '/major-' + str(
+                        np.save(crop_subject_feature_path + '/' + img_name + '-' + str(
                             one_image_knuckle) + '-' + '8' + '.npy', fk_fm_8)
                         one_image_knuckle += 1
 
@@ -213,7 +232,7 @@ def detect(save_img=False):
                                                                      color=colors[int(cls)],
                                                                      line_thickness=1,
                                                                      pi_format=False)
-                                cv2.imwrite(crop_subject_path + '/major-' + str(one_image_knuckle) + '.jpg', img_crop)
+                                cv2.imwrite(crop_subject_path + '/' + img_name + '-' + str(one_image_knuckle) + '.jpg', img_crop)
                                 one_image_knuckle += 1
 
                 # Print time (inference + NMS)
@@ -221,9 +240,12 @@ def detect(save_img=False):
 
                 # Stream results 播放结果
                 if view_img:
+                    cv2.namedWindow(p, cv2.WINDOW_NORMAL)
                     cv2.imshow(p, im0)
-                    if cv2.waitKey(1) == ord('q'):  # q to quit
-                        raise StopIteration
+                    cv2.waitKey(30)
+                    cv2.destroyWindow(p)
+                    # if cv2.waitKey(1) == ord('q'):  # q to quit
+                    #     raise StopIteration
 
                 # Save results (image with detections)
                 if save_img:
@@ -410,10 +432,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='./inference/imgs/', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='./inference/detection/', help='output folder')  # output folder
-    parser.add_argument('--crop_path', type=str, default='./inference/crop', help='crop finger knuckle folder')
-    parser.add_argument('--feature_path', type=str, default='./inference/feature', help='crop feature map folder')
+    parser.add_argument('--source', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left/', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-detection/', help='output folder')  # output folder
+    parser.add_argument('--crop_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-crop/', help='crop finger knuckle folder')
+    parser.add_argument('--feature_path', type=str, default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-feature/', help='crop feature map folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
