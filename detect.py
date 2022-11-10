@@ -166,6 +166,7 @@ def detect(save_img=False):
                 img_name = (Path(p).name).split('.')[0]
 
                 # ==================== Firstly, we only consider the major finger knuckle
+                # det.shape():-> [num_nms_boxes, 7]
                 if det is not None and len(det):
                     # ==================== only need one finger knuckle for each image
                     major_knuckle = 0
