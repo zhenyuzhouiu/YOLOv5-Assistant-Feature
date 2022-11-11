@@ -87,11 +87,16 @@ def post_processing(bboxes, image_w, image_h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
         for i in range(4):
             top_four.append(bboxes.pop(-1))
 
-        statistic(top_four, p1, p2, p3, p4, p5)
+        top_four = statistic(top_four, p1, p2, p3, p4, p5)
+        if len(top_four) == 4:
+            top_four.sort(key=takeX)
+            return torch.from_numpy(np.array(top_four)).to(device)
 
         while len(bboxes) != 0:
             top_four.append(bboxes.pop(-1))
-
             statistic(top_four, p1, p2, p3, p4, p5)
-
+            if len(top_four) == 4:
+                top_four.sort(key=takeX)
+                return torch.from_numpy(np.array(top_four)).to(device)
+    top_four.sort(key=takeX)
     return torch.from_numpy(np.array(top_four)).to(device)
