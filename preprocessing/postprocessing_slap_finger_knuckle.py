@@ -22,8 +22,9 @@ def takeY(elem):
 
 
 def statistic(top_four, p1, p2, p3, p4, p5):
-    ymin = top_four.sort(key=takeY)[0][1]
-    ymax = top_four.sort(key=takeY)[-1][1]
+    top_four.sort(key=takeY)
+    ymin = top_four[0][1]
+    ymax = top_four[-1][1]
     disy = ymax - ymin
     top_four.sort(key=takeX)
     avg_14 = (top_four[0][1] + top_four[-1][1]) / 2
@@ -71,16 +72,16 @@ def post_processing(bboxes, image_w, image_h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
     p4 = p4 * image_w
 
     # convert tensor to numpy
-    device = bboxes.device()
+    device = bboxes.device
     bboxes = bboxes.cpu().numpy()
-    bboxes = list(bboxes).tolist()
+    bboxes = bboxes.tolist()
     # sort bounding boxes by confidence score
 
     bboxes.sort(key=takeConfidence)
 
     if len(bboxes) <= 4:
         bboxes.sort(key=takeX)
-        return bboxes
+        return torch.from_numpy(np.array(bboxes)).to(device)
     else:
         # extract the top four bounding boxes
         top_four = []

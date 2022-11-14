@@ -22,10 +22,10 @@ from preprocessing.postprocessing_slap_finger_knuckle import post_processing
 from matplotlib import pyplot as plt
 
 label_name = {
-    0: "little_knuckle",
-    1: "ring_knuckle",
-    2: "middle_knuckle",
-    3: "index_knuckle"
+    0: "index_knuckle",
+    1: "middle_knuckle",
+    2: "ring_knuckle",
+    3: "little_knuckle"
 }
 
 def detect(save_img=False):
@@ -186,7 +186,7 @@ def detect(save_img=False):
                                 major_det = torch.cat([major_det, det[det_r, :].unsqueeze(0)], dim=0)
                             major_knuckle += 1
                     if major_det is not None and len(major_det):
-                        b, c, h, w = img.shape()
+                        b, c, h, w = img.size()
                         det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05, p5=1.02)
                     else:
                         continue
@@ -230,8 +230,10 @@ def detect(save_img=False):
                 # Stream results 播放结果
                 if view_img:
                     plt.subplot(1, 2, 1)
+                    im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
                     plt.imshow(im0)
                     plt.subplot(1, 2, 2)
+                    im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
                     plt.imshow(im1)
                     plt.show()
                 # Save results (image with detections)
@@ -432,7 +434,7 @@ if __name__ == '__main__':
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-feature/',
                         help='crop feature map folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view_img', default=True, action='store_true', help='display results')
