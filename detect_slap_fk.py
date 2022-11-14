@@ -35,10 +35,10 @@ from preprocessing.postprocessing_slap_finger_knuckle import post_processing
 from matplotlib import pyplot as plt
 
 label_name = {
-    0: "index_knuckle",
-    1: "middle_knuckle",
-    2: "ring_knuckle",
-    3: "little_knuckle"
+    0: "Index",
+    1: "Middle",
+    2: "Ring",
+    3: "Little"
 }
 
 
@@ -48,8 +48,8 @@ def detect(save_img=False):
     output(result):
     '''
     # 获取输出文件夹，输入路径，权重，参数等参数
-    out, source, segment_path, feature_path, conf_path, weights, view_img, save_txt, imgsz = \
-        opt.output, opt.source, opt.segment_path, opt.feature_path, opt.confidence_path, \
+    out, source, segment_path, feature_path, weights, view_img, save_txt, imgsz = \
+        opt.output, opt.source, opt.segment_path, opt.feature_path, \
         opt.weights, opt.view_img, opt.save_txt, opt.img_size
 
     # Initialize
@@ -87,9 +87,6 @@ def detect(save_img=False):
     if os.path.exists(feature_path):
         shutil.rmtree(feature_path)  # delete output folder
     os.mkdir(feature_path)
-    if os.path.exists(conf_path):
-        shutil.rmtree(conf_path)
-    os.mkdir(conf_path)
 
     subject_name = os.listdir(source)
     for s in subject_name:
@@ -100,12 +97,19 @@ def detect(save_img=False):
         feature_subject_path = os.path.join(feature_path, s)
         if not os.path.exists(feature_subject_path):
             os.mkdir(feature_subject_path)
-        conf_subject_path = os.path.join(conf_path, s)
-        if not os.path.exists(conf_subject_path):
-            os.mkdir(conf_subject_path)
         out_subject = os.path.join(out, s)
         if not os.path.exists(out_subject):
             os.mkdir(out_subject)
+
+        for key, value in label.items():
+            path = os.path.join(segment_subject_path, value)
+            if not os.path.exists(path):
+                os.mkdir(path)
+        for key, value in label.items():
+            path = os.path.join(feature_subject_path, value)
+            if not os.path.exists(path):
+                os.mkdir(path)
+
 
         # Set Dataloader
         # 通过不同的输入源来设置不同的数据加载方式
@@ -184,6 +188,8 @@ def detect(save_img=False):
                 save_path = str(Path(out_subject) / Path(p).name)  # 图片保存路径+图片名字
                 s += '%gx%g ' % img.shape[2:]  # print string
                 img_name = (Path(p).name).split('.')[0]
+                file = open(out + "/bboxes_smaller_4.txt", 'w')
+                file.close()
 
                 # det.shape():-> [num_nms_boxes, 7]
                 if det is not None and len(det):
@@ -202,75 +208,76 @@ def detect(save_img=False):
                         b, c, h, w = img.size()
                         det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
                                               p5=1.02)
+
+                        # ==================== getting the feature map from the [17, 20, 23] layers of model
+                        num_knuckle = 0
+                        for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
+                            label = label_name[num_knuckle]
+                            fk_fm_32, fk_fm_16, fk_fm_8 = assistant_feature(*rbox, save=save)
+                            np.save(feature_subject_path + '/' + label + '/' + img_name + '-' + '32' + '.npy', fk_fm_32)
+                            np.save(feature_subject_path + '/' + label + '/' + img_name + '-' + '16' + '.npy', fk_fm_16)
+                            np.save(feature_subject_path + '/' + label + '/' + img_name + '-' + '8' + '.npy', fk_fm_8)
+                            num_knuckle += 1
+
+                        # ========================== Rescale boxes from img_size to im0 size
+                        det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
+                        im1 = im0.copy()
+                        num_knuckle = 0
+                        for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
+                            label = label_name[num_knuckle]
+                            classname = '%s' % names[int(cls)]
+                            conf_str = '%.3f' % conf
+                            rbox2txt(rbox, classname, conf_str, Path(p).stem,
+                                     str(out_subject + '/result_txt/'))
+                            im1, img_crop = plot_one_rotated_box(rbox, im1, label=label,
+                                                                 color=colors[int(cls)],
+                                                                 line_thickness=1,
+                                                                 pi_format=False)
+                            cv2.imwrite(os.path.join(segment_subject_path, label, Path(p).name), img_crop)
+
+                            num_knuckle += 1
+                        if view_img:
+                            im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
+                            plt.imshow(im1)
+                            plt.show()
+                        # Save results (image with detections)
+                        if save_img:
+                            cv2.imwrite(save_path, im1)
+                            pass
                     else:
                         # if the number of major finger knuckle is less than 4
-                        with open(out_subject + '/miss.tex', 'w+') as f:
-                            f.write(str(save_path) + '\n')
+                        with open(out + "/bboxes_smaller_4.txt", 'w+') as f:
+                            f.write(p+'\n')
+                        # ========================== Rescale boxes from img_size to im0 size
+                        major_det[:, :5] = scale_labels(img.shape[2:], major_det[:, :5], im0.shape).round()
+                        # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
+                        for c in det[:, -1].unique():  # unique函数去除其中重复的元素，并按元素（类别）由大到小返回一个新的无元素重复的元组或者列表
+                            n = (det[:, -1] == c).sum()  # detections per class  每个类别检测出来的素含量
+                            s += '%g %ss, ' % (n, names[int(c)])  # add to string 输出‘数量 类别,’
+                        # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
+                        for *rbox, conf, cls in reversed(major_det):  # 翻转list的排列结果,改为类别由小到大的排列
+                            pred_angle = '%s' % int(rbox[4].cpu().float().numpy())
+                            angle = pred_angle
+                            classname = '%s' % names[int(cls)]
+                            conf_str = '%.3f' % conf
+                            rbox2txt(rbox, classname, conf_str, Path(p).stem,
+                                     str(out_subject + '/result_txt'))
+                            im0, img_crop = plot_one_rotated_box(rbox, im0, label=angle,
+                                                                 color=colors[int(cls)],
+                                                                 line_thickness=1,
+                                                                 pi_format=False)
 
-                        continue
-
-                    # ========================== Rescale boxes from img_size to im0 size
-                    major_det[:, :5] = scale_labels(img.shape[2:], major_det[:, :5], im0.shape).round()
-                    det[:, :5] = scale_labels(img.shape[2:], det[:, :5], im0.shape).round()
-                    # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
-                    for c in det[:, -1].unique():  # unique函数去除其中重复的元素，并按元素（类别）由大到小返回一个新的无元素重复的元组或者列表
-                        n = (det[:, -1] == c).sum()  # detections per class  每个类别检测出来的素含量
-                        s += '%g %ss, ' % (n, names[int(c)])  # add to string 输出‘数量 类别,’
-                    # Write results  det:(num_nms_boxes, [xywhθ,conf,classid]) θ∈[0,179]
-                    im1 = im0.copy()
-                    for *rbox, conf, cls in reversed(major_det):  # 翻转list的排列结果,改为类别由小到大的排列
-                        pred_angle = '%s' % int(rbox[4].cpu().float().numpy())
-                        angle = pred_angle
-                        classname = '%s' % names[int(cls)]
-                        conf_str = '%.3f' % conf
-                        rbox2txt(rbox, classname, conf_str, Path(p).stem,
-                                 str(out_subject + '/result_txt/result_before_merge'))
-                        im0, img_crop = plot_one_rotated_box(rbox, im0, label=angle,
-                                                             color=colors[int(cls)],
-                                                             line_thickness=1,
-                                                             pi_format=False)
-                    num_knuckle = 0
-                    for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
-                        label = label_name[num_knuckle]
-                        classname = '%s' % names[int(cls)]
-                        conf_str = '%.3f' % conf
-                        rbox2txt(rbox, classname, conf_str, Path(p).stem,
-                                 str(out_subject + '/result_txt/result_before_merge'))
-                        im1, img_crop = plot_one_rotated_box(rbox, im1, label=label,
-                                                             color=colors[int(cls)],
-                                                             line_thickness=1,
-                                                             pi_format=False)
-                        num_knuckle += 1
+                        if view_img:
+                            im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+                            plt.imshow(im0)
+                            plt.show()
+                        # Save results (image with detections)
+                        if save_img:
+                            cv2.imwrite(save_path, im0)
+                            pass
 
                 # Print time (inference + NMS)
                 print('%sDone. (%.3fs)' % (s, t2 - t1))
-
-                # Stream results 播放结果
-                if view_img:
-                    plt.subplot(1, 2, 1)
-                    im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-                    plt.imshow(im0)
-                    plt.subplot(1, 2, 2)
-                    im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
-                    plt.imshow(im1)
-                    plt.show()
-                # Save results (image with detections)
-                if save_img:
-                    if dataset.mode == 'images':
-                        cv2.imwrite(save_path, im0)
-                        pass
-                    else:
-                        if vid_path != save_path:  # new video
-                            vid_path = save_path
-                            if isinstance(vid_writer, cv2.VideoWriter):
-                                vid_writer.release()  # release previous video writer
-
-                            fourcc = 'mp4v'  # output video codec
-                            fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                            w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                            h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                            vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
-                        vid_writer.write(im0)
 
         if save_txt or save_img:
             print('   Results saved to %s' % Path(out_subject))
@@ -451,9 +458,6 @@ if __name__ == '__main__':
     parser.add_argument('--feature_path', type=str,
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/',
                         help='yolo feature folder')
-    parser.add_argument('--confidence_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/confidence/',
-                        help='confidence of detected finger knuckle')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
