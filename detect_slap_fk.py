@@ -1,3 +1,16 @@
+# ================= slap finger knuckle detection
+# ================= saved information
+# 1> segmented finger knuckle
+# 2> segmented finger knuckle feature from YOLOv5
+# 3> finger knuckle confidence score
+# ================= finger knuckle position
+# 1> when the number of detected bounding boxes is greater or equal to 4
+# === sort detected finger knuckle by confidence
+# === select corresponding finger knuckle depend on position information
+# 2> when the number of detected bounding boxes is smaller than 4
+# === save the image information, image path to a text file
+# === skip segment finger knuckle
+
 import argparse
 import os
 import shutil
@@ -28,15 +41,16 @@ label_name = {
     3: "little_knuckle"
 }
 
+
 def detect(save_img=False):
     '''
     input: save_img_flag
     output(result):
     '''
     # 获取输出文件夹，输入路径，权重，参数等参数
-    out, source, crop, crop_feature, weights, view_img, save_txt, imgsz = \
-        opt.output, opt.source, opt.crop_path, opt.feature_path, opt.weights, opt.view_img, opt.save_txt, opt.img_size
-    webcam = source.isnumeric() or source.startswith(('rtsp://', 'rtmp://', 'http://')) or source.endswith('.txt')
+    out, source, segment_path, feature_path, conf_path, weights, view_img, save_txt, imgsz = \
+        opt.output, opt.source, opt.segment_path, opt.feature_path, opt.confidence_path, \
+        opt.weights, opt.view_img, opt.save_txt, opt.img_size
 
     # Initialize
     set_logging()
@@ -67,22 +81,28 @@ def detect(save_img=False):
     if os.path.exists(out):
         shutil.rmtree(out)  # delete output folder
     os.mkdir(out)  # make new output folder
-    if os.path.exists(crop):
-        shutil.rmtree(crop)  # delete output folder
-    os.mkdir(crop)
-    if os.path.exists(crop_feature):
-        shutil.rmtree(crop_feature)  # delete output folder
-    os.mkdir(crop_feature)
+    if os.path.exists(segment_path):
+        shutil.rmtree(segment_path)  # delete output folder
+    os.mkdir(segment_path)
+    if os.path.exists(feature_path):
+        shutil.rmtree(feature_path)  # delete output folder
+    os.mkdir(feature_path)
+    if os.path.exists(conf_path):
+        shutil.rmtree(conf_path)
+    os.mkdir(conf_path)
 
     subject_name = os.listdir(source)
     for s in subject_name:
         subject_path = os.path.join(source, s)
-        crop_subject_path = os.path.join(crop, s)
-        if not os.path.exists(crop_subject_path):
-            os.mkdir(crop_subject_path)
-        crop_subject_feature_path = os.path.join(crop_feature, s)
-        if not os.path.exists(crop_subject_feature_path):
-            os.mkdir(crop_subject_feature_path)
+        segment_subject_path = os.path.join(segment_path, s)
+        if not os.path.exists(segment_subject_path):
+            os.mkdir(segment_subject_path)
+        feature_subject_path = os.path.join(feature_path, s)
+        if not os.path.exists(feature_subject_path):
+            os.mkdir(feature_subject_path)
+        conf_subject_path = os.path.join(conf_path, s)
+        if not os.path.exists(conf_subject_path):
+            os.mkdir(conf_subject_path)
         out_subject = os.path.join(out, s)
         if not os.path.exists(out_subject):
             os.mkdir(out_subject)
@@ -90,13 +110,8 @@ def detect(save_img=False):
         # Set Dataloader
         # 通过不同的输入源来设置不同的数据加载方式
         vid_path, vid_writer = None, None
-        if webcam:
-            view_img = True
-            cudnn.benchmark = True  # set True to speed up constant image size inference
-            dataset = LoadStreams(source, img_size=imgsz)
-        else:
-            save_img = True
-            dataset = LoadImages(subject_path, img_size=imgsz)
+        save_img = True
+        dataset = LoadImages(subject_path, img_size=imgsz)
 
         # Get names and colors
         # 获取类别名字    names = ['person', 'bicycle', 'car',...,'toothbrush']
@@ -164,19 +179,15 @@ def detect(save_img=False):
 
             # Process detections
             for i, det in enumerate(pred):  # i:image index  det:->tensor(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
-                if webcam:  # batch_size >= 1
-                    p, s, im0 = path[i], '%g: ' % i, im0s[i].copy()
-                else:
-                    p, s, im0 = path, '', im0s
+                p, s, im0 = path, '', im0s
 
                 save_path = str(Path(out_subject) / Path(p).name)  # 图片保存路径+图片名字
                 s += '%gx%g ' % img.shape[2:]  # print string
                 img_name = (Path(p).name).split('.')[0]
 
-                # ==================== Firstly, we only consider the major finger knuckle
                 # det.shape():-> [num_nms_boxes, 7]
                 if det is not None and len(det):
-                    # ==================== only need one finger knuckle for each image
+                    # ==================== only get the major finger knuckle detection
                     major_knuckle = 0
                     for det_r in range(det.size(0)):
                         if det[det_r][6] == torch.tensor(0):
@@ -185,10 +196,17 @@ def detect(save_img=False):
                             else:
                                 major_det = torch.cat([major_det, det[det_r, :].unsqueeze(0)], dim=0)
                             major_knuckle += 1
-                    if major_det is not None and len(major_det):
+
+                    if major_det is not None and len(major_det) >= 4:
+                        # if the number of major finger knuckle is greater or equal to 4
                         b, c, h, w = img.size()
-                        det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05, p5=1.02)
+                        det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
+                                              p5=1.02)
                     else:
+                        # if the number of major finger knuckle is less than 4
+                        with open(out_subject + '/miss.tex', 'w+') as f:
+                            f.write(str(save_path) + '\n')
+
                         continue
 
                     # ========================== Rescale boxes from img_size to im0 size
@@ -425,14 +443,17 @@ if __name__ == '__main__':
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left/',
                         help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-detection/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/',
                         help='output folder')  # output folder
-    parser.add_argument('--crop_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-crop/',
-                        help='crop finger knuckle folder')
+    parser.add_argument('--segment_path', type=str,
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/segmentation/',
+                        help='segmented finger knuckle folder')
     parser.add_argument('--feature_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left-ring-feature/',
-                        help='crop feature map folder')
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/',
+                        help='yolo feature folder')
+    parser.add_argument('--confidence_path', type=str,
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/confidence/',
+                        help='confidence of detected finger knuckle')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
