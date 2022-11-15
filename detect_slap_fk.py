@@ -35,10 +35,10 @@ from preprocessing.postprocessing_slap_finger_knuckle import post_processing
 from matplotlib import pyplot as plt
 
 label_name = {
-    0: "Index",
-    1: "Middle",
-    2: "Ring",
-    3: "Little"
+    3: "Index",
+    2: "Middle",
+    1: "Ring",
+    0: "Little"
 }
 
 
@@ -88,6 +88,9 @@ def detect(save_img=False):
         shutil.rmtree(feature_path)  # delete output folder
     os.mkdir(feature_path)
 
+    file = open(out + "/bboxes_smaller_4.txt", 'w')
+    file.close()
+
     subject_name = os.listdir(source)
     for s in subject_name:
         subject_path = os.path.join(source, s)
@@ -101,11 +104,11 @@ def detect(save_img=False):
         if not os.path.exists(out_subject):
             os.mkdir(out_subject)
 
-        for key, value in label.items():
+        for key, value in label_name.items():
             path = os.path.join(segment_subject_path, value)
             if not os.path.exists(path):
                 os.mkdir(path)
-        for key, value in label.items():
+        for key, value in label_name.items():
             path = os.path.join(feature_subject_path, value)
             if not os.path.exists(path):
                 os.mkdir(path)
@@ -188,8 +191,6 @@ def detect(save_img=False):
                 save_path = str(Path(out_subject) / Path(p).name)  # 图片保存路径+图片名字
                 s += '%gx%g ' % img.shape[2:]  # print string
                 img_name = (Path(p).name).split('.')[0]
-                file = open(out + "/bboxes_smaller_4.txt", 'w')
-                file.close()
 
                 # det.shape():-> [num_nms_boxes, 7]
                 if det is not None and len(det):
@@ -237,9 +238,13 @@ def detect(save_img=False):
 
                             num_knuckle += 1
                         if view_img:
-                            im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
-                            plt.imshow(im1)
-                            plt.show()
+                            cv2.namedWindow("Bboxes goe 4", cv2.WINDOW_NORMAL)
+                            cv2.imshow("Bboxes goe 4", im1)
+                            cv2.waitKey(10)
+                            cv2.destroyWindow("Bboxes goe 4")
+                            # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
+                            # plt.imshow(im1)
+                            # plt.show()
                         # Save results (image with detections)
                         if save_img:
                             cv2.imwrite(save_path, im1)
@@ -268,9 +273,13 @@ def detect(save_img=False):
                                                                  pi_format=False)
 
                         if view_img:
-                            im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-                            plt.imshow(im0)
-                            plt.show()
+                            cv2.namedWindow("Bboxes less than 3", cv2.WINDOW_NORMAL)
+                            cv2.imshow("Bboxes less than 3", im0)
+                            cv2.waitKey(10)
+                            cv2.destroyWindow("Bboxes less than 3")
+                            # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+                            # plt.imshow(im0)
+                            # plt.show()
                         # Save results (image with detections)
                         if save_img:
                             cv2.imwrite(save_path, im0)
@@ -447,7 +456,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/left/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/right/',
                         help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str,
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/',
@@ -459,7 +468,7 @@ if __name__ == '__main__':
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/',
                         help='yolo feature folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.01, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view_img', default=True, action='store_true', help='display results')
