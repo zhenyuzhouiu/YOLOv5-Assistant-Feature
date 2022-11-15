@@ -34,6 +34,7 @@ from torch.nn import functional as F
 from preprocessing.postprocessing_slap_finger_knuckle import post_processing, thumb_processing
 from matplotlib import pyplot as plt
 
+# left
 # label_name = {
 #     0: "Index",
 #     1: "Middle",
@@ -41,10 +42,19 @@ from matplotlib import pyplot as plt
 #     3: "Little"
 # }
 
+# right
 label_name = {
-    0: "Right",
-    1: "Left"
+    3: "Index",
+    2: "Middle",
+    1: "Ring",
+    0: "Little"
 }
+
+
+# label_name = {
+#     0: "Right",
+#     1: "Left"
+# }
 
 
 def detect(save_img=False):
@@ -208,15 +218,17 @@ def detect(save_img=False):
                             else:
                                 major_det = torch.cat([major_det, det[det_r, :].unsqueeze(0)], dim=0)
                             major_knuckle += 1
+                    # major_det = det
 
-                    if major_det is not None and len(major_det) >= 2:
+                    if major_det is not None and len(major_det) >= 4:
                         # if the number of major finger knuckle is greater or equal to 4
                         b, c, h, w = img.size()
-                        # det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
-                        #                       p5=1.02)
-                        det = thumb_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
-                                               p5=1.02)
+                        det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
+                                              p5=1.02)
 
+                        # det = thumb_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
+                        #                              p5=1.02)
+                        # det = major_det
                         # ==================== getting the feature map from the [17, 20, 23] layers of model
                         num_knuckle = 0
                         for *rbox, conf, cls in reversed(det):  # 翻转list的排列结果,改为类别由小到大的排列
@@ -241,7 +253,7 @@ def detect(save_img=False):
                                                                  color=colors[int(cls)],
                                                                  line_thickness=1,
                                                                  pi_format=False)
-                            cv2.imwrite(os.path.join(segment_subject_path, label, Path(p).name), img_crop)
+                            cv2.imwrite(os.path.join(segment_subject_path, label, Path(p).name), img_crop, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
 
                             num_knuckle += 1
                         if view_img:
@@ -260,6 +272,8 @@ def detect(save_img=False):
                         # if the number of major finger knuckle is less than 4
                         with open(out + "/bboxes_smaller_4.txt", 'a+') as f:
                             f.write(p+'\n')
+                        if not len(major_det):
+                            continue
                         # ========================== Rescale boxes from img_size to im0 size
                         major_det[:, :5] = scale_labels(img.shape[2:], major_det[:, :5], im0.shape).round()
                         # Print results    det:(num_nms_boxes, [xylsθ,conf,classid]) θ∈[0,179]
@@ -463,19 +477,19 @@ if __name__ == '__main__':
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/thumb/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/bboxes_smaller_4/',
                         help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/detection/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/',
                         help='output folder')  # output folder
     parser.add_argument('--segment_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/segmentation/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/segmentation/',
                         help='segmented finger knuckle folder')
     parser.add_argument('--feature_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/feature/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/',
                         help='yolo feature folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.005, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view_img', default=True, action='store_true', help='display results')

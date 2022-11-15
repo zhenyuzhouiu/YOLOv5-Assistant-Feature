@@ -68,9 +68,9 @@ def statistic(top_four, p1, p2, p3, p4, p5, image_h):
         y2 = top_four[1][1]
 
         # constraints
-        if y1 < image_h / 2 and disy > 100:
+        if y1 < image_h / 2.5 and disy > 100:
             top_four.pop(0)
-        elif y2 < image_h and disy > 100:
+        elif y2 < image_h / 2.5 and disy > 100:
             top_four.pop(1)
         else:
             return top_four
@@ -107,14 +107,14 @@ def post_processing(bboxes, image_w, image_h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
         for i in range(4):
             top_four.append(bboxes.pop(-1))
 
-        top_four = statistic(top_four, p1, p2, p3, p4, p5)
+        top_four = statistic(top_four, p1, p2, p3, p4, p5, image_h)
         if len(top_four) == 4:
             top_four.sort(key=takeX)
             return torch.from_numpy(np.array(top_four)).to(device)
 
         while len(bboxes) != 0:
             top_four.append(bboxes.pop(-1))
-            statistic(top_four, p1, p2, p3, p4, p5)
+            statistic(top_four, p1, p2, p3, p4, p5, image_h)
             if len(top_four) == 4:
                 top_four.sort(key=takeX)
                 return torch.from_numpy(np.array(top_four)).to(device)
@@ -138,14 +138,22 @@ def thumb_processing(bboxes, image_w, image_h, p1=1.2, p2=0.23, p3=0.25, p4=0.05
     device = bboxes.device
     bboxes = bboxes.cpu().numpy()
     bboxes = bboxes.tolist()
-    # sort bounding boxes by confidence score
 
-    bboxes.sort(key=takeConfidence)
+    # sort bounding boxes by confidence score
 
     if len(bboxes) <= 1:
         bboxes.sort(key=takeX)
         return torch.from_numpy(np.array(bboxes)).to(device)
     else:
+        new_bboxes = []
+        for i in bboxes:
+            if i[1] > image_h / 2.3:
+                new_bboxes.append(i)
+        bboxes = new_bboxes
+        bboxes.sort(key=takeConfidence)
+        if len(bboxes) <= 1:
+            bboxes.sort(key=takeX)
+            return torch.from_numpy(np.array(bboxes)).to(device)
         # extract the top four bounding boxes
         top_two = []
         for i in range(2):
