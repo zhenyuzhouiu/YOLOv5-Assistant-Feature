@@ -194,8 +194,19 @@ class LoadImages:  # for inference
             assert img0 is not None, 'Image Not Found ' + path
             print('image %g/%g %s: ' % (self.count, self.nf, path), end='')
 
+        image_yuv = cv2.cvtColor(img0, cv2.COLOR_BGR2YUV)
+        image_yuv[:, :, 0] = cv2.equalizeHist(image_yuv[:, :, 0])
+        img = cv2.cvtColor(image_yuv, cv2.COLOR_YUV2BGR)
+
+        # c = 255 / np.log(1 + np.max(img0))
+        # log_image = c * (np.log(img0 + 1))
+        # img = np.array(log_image, dtype=np.uint8)
+
+        # gamma = 3
+        # invgamma = 1 / gamma
+        # img = np.array(np.power((img0 / 255), invgamma) * 255, dtype=np.uint8)
         # Padded resize
-        img = letterbox(img0, new_shape=self.img_size)[0]
+        img = letterbox(img, new_shape=self.img_size)[0]
 
         # Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416

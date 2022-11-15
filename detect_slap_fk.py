@@ -31,14 +31,19 @@ from utils.general import (check_img_size, scale_labels,
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 from utils.evaluation_utils import rbox2txt, rbox2center
 from torch.nn import functional as F
-from preprocessing.postprocessing_slap_finger_knuckle import post_processing
+from preprocessing.postprocessing_slap_finger_knuckle import post_processing, thumb_processing
 from matplotlib import pyplot as plt
 
+# label_name = {
+#     0: "Index",
+#     1: "Middle",
+#     2: "Ring",
+#     3: "Little"
+# }
+
 label_name = {
-    3: "Index",
-    2: "Middle",
-    1: "Ring",
-    0: "Little"
+    0: "Right",
+    1: "Left"
 }
 
 
@@ -204,11 +209,13 @@ def detect(save_img=False):
                                 major_det = torch.cat([major_det, det[det_r, :].unsqueeze(0)], dim=0)
                             major_knuckle += 1
 
-                    if major_det is not None and len(major_det) >= 4:
+                    if major_det is not None and len(major_det) >= 2:
                         # if the number of major finger knuckle is greater or equal to 4
                         b, c, h, w = img.size()
-                        det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
-                                              p5=1.02)
+                        # det = post_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
+                        #                       p5=1.02)
+                        det = thumb_processing(major_det, image_w=w, image_h=h, p1=1.2, p2=0.23, p3=0.25, p4=0.05,
+                                               p5=1.02)
 
                         # ==================== getting the feature map from the [17, 20, 23] layers of model
                         num_knuckle = 0
@@ -240,7 +247,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes goe 4", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes goe 4", im1)
-                            cv2.waitKey(300)
+                            cv2.waitKey(500)
                             cv2.destroyWindow("Bboxes goe 4")
                             # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im1)
@@ -275,7 +282,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes less than 3", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes less than 3", im0)
-                            cv2.waitKey(300)
+                            cv2.waitKey(500)
                             cv2.destroyWindow("Bboxes less than 3")
                             # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im0)
@@ -456,16 +463,16 @@ if __name__ == '__main__':
     parser.add_argument('--weights', nargs='+', type=str,
                         default='./weights/finger_knuckle_obb/rog-yolov5x-longside-cw.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/right/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/thumb/',
                         help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/detection/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/detection/',
                         help='output folder')  # output folder
     parser.add_argument('--segment_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/segmentation/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/segmentation/',
                         help='segmented finger knuckle folder')
     parser.add_argument('--feature_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/feature/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-thumb/feature/',
                         help='yolo feature folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
