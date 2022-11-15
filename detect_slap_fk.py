@@ -240,7 +240,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes goe 4", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes goe 4", im1)
-                            cv2.waitKey(100)
+                            cv2.waitKey(300)
                             cv2.destroyWindow("Bboxes goe 4")
                             # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im1)
@@ -275,7 +275,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes less than 3", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes less than 3", im0)
-                            cv2.waitKey(100)
+                            cv2.waitKey(300)
                             cv2.destroyWindow("Bboxes less than 3")
                             # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im0)
@@ -459,16 +459,16 @@ if __name__ == '__main__':
                         default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/right/',
                         help='source')  # file/folder, 0 for webcam
     parser.add_argument('--output', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/detection/',
                         help='output folder')  # output folder
     parser.add_argument('--segment_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/segmentation/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/segmentation/',
                         help='segmented finger knuckle folder')
     parser.add_argument('--feature_path', type=str,
-                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/',
+                        default='/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/feature/',
                         help='yolo feature folder')
     parser.add_argument('--img-size', type=int, default=1024, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.01, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.05, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view_img', default=True, action='store_true', help='display results')
