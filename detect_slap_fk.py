@@ -87,8 +87,8 @@ def detect(save_img=False):
     if os.path.exists(feature_path):
         shutil.rmtree(feature_path)  # delete output folder
     os.mkdir(feature_path)
-
-    file = open(out + "/bboxes_smaller_4.txt", 'w')
+    # mode x, create a new txt file
+    file = open(out + "/bboxes_smaller_4.txt", 'x')
     file.close()
 
     subject_name = os.listdir(source)
@@ -240,7 +240,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes goe 4", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes goe 4", im1)
-                            cv2.waitKey(10)
+                            cv2.waitKey(100)
                             cv2.destroyWindow("Bboxes goe 4")
                             # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im1)
@@ -251,7 +251,7 @@ def detect(save_img=False):
                             pass
                     else:
                         # if the number of major finger knuckle is less than 4
-                        with open(out + "/bboxes_smaller_4.txt", 'w+') as f:
+                        with open(out + "/bboxes_smaller_4.txt", 'a+') as f:
                             f.write(p+'\n')
                         # ========================== Rescale boxes from img_size to im0 size
                         major_det[:, :5] = scale_labels(img.shape[2:], major_det[:, :5], im0.shape).round()
@@ -275,7 +275,7 @@ def detect(save_img=False):
                         if view_img:
                             cv2.namedWindow("Bboxes less than 3", cv2.WINDOW_NORMAL)
                             cv2.imshow("Bboxes less than 3", im0)
-                            cv2.waitKey(10)
+                            cv2.waitKey(100)
                             cv2.destroyWindow("Bboxes less than 3")
                             # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
                             # plt.imshow(im0)
