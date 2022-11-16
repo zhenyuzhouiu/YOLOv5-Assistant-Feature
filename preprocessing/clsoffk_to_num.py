@@ -4,11 +4,11 @@ import shutil
 # src_det = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-left/detection"
 # dst_det = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/detection/"
 #
-# src_fea = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-left/feature"
-# dst_fea = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/"
+src_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/yolov5-right/feature"
+dst_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/feature/"
 
-src_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/mask-thumb/"
-dst_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/segmentation/"
+# src_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/mask-thumb/"
+# dst_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Finger-knuckle/segmentation/"
 
 # left
 # cls_dict = {
@@ -19,18 +19,18 @@ dst_seg = "/media/zhenyuzhou/Data/finger_knuckle_2018/FingerKnukcleDatabase/Fing
 # }
 
 # right
-# cls_dict = {
-#     "Little": "10",
-#     "Ring": "09",
-#     "Middle": "08",
-#     "Index": "07"
-# }
+cls_dict = {
+    "Little": "10",
+    "Ring": "09",
+    "Middle": "08",
+    "Index": "07"
+}
 
 # thumb
-cls_dict = {
-    "Left": "05",
-    "Right": "06"
-}
+# cls_dict = {
+#     "Left": "05",
+#     "Right": "06"
+# }
 
 subject_name = os.listdir(src_seg)
 for s in subject_name:
